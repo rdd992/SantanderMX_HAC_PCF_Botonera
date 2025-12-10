@@ -64,7 +64,7 @@ jobs:
       - name: Auth and Push PCF
         shell: pwsh
         env:
-          PP_ENVIRONMENT_URL:  ${{ secrets.PP_ENVIRONMENT_URL }}
+          PP_ENVIRONMENT_URL:  ${{ secrets.PP_ENV_URL }}
           PP_TENANT_ID:        ${{ secrets.PP_TENANT_ID }}
           PP_CLIENT_ID:        ${{ secrets.PP_CLIENT_ID }}
           PP_CLIENT_SECRET:    ${{ secrets.PP_CLIENT_SECRET }}
@@ -89,9 +89,10 @@ jobs:
           & $pac auth clear
           
           & $pac auth create `
-            --environment $env:PP_ENVIRONMENT_URL `
+            --environment $env:PP_ENV_URL `
             --tenant $env:PP_TENANT_ID `
             --applicationId $env:PP_CLIENT_ID `
             --clientSecret $env:PP_CLIENT_SECRET
           
           & $pac pcf push --publisher-prefix $env:PP_PUBLISHER_PREFIX
+
