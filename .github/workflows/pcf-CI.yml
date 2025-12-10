@@ -35,7 +35,7 @@ jobs:
     needs: build               # 👈 NO se ejecuta si build falla
 
     # Solo desplegar en push a main (no en PR, por ejemplo)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout repo
@@ -72,3 +72,4 @@ jobs:
             --url $env:PP_ENV_URL
 
           pac pcf push
+
