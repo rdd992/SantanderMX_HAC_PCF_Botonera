@@ -1,4 +1,4 @@
-name: CI/CD - PCF Botonera
+name: Build & Deploy PCF
 
 on:
   push:
@@ -6,50 +6,55 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # 1) Obtener el código
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # 2) Node para hacer el build de tu PCF
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 18
 
-      - run: npm ci
-      - run: npm run build
-
-      - name: Publicar artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: pcf-out
-          path: out
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - run: npm ci
-      - run: npm run build
-
-      - name: Install Power Platform CLI
+      # 3) Instalar Power Platform Tools (PAC CLI)
+      - name: Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      - name: Authenticate to Power Platform
-        uses: microsoft/powerplatform-actions/actions-cloud-login@v1
-        with:
-          tenant-id: ${{ secrets.PP_TENANT_ID }}
-          client-id: ${{ secrets.PP_CLIENT_ID }}
-          client-secret: ${{ secrets.PP_CLIENT_SECRET }}
-          environment-url: ${{ secrets.PP_ENV_URL }}
+      # 4) Instalar dependencias del PCF
+      # Ajusta 'working-directory' si tu package.json está en otra carpeta
+      - name: npm install
+        run: npm ci
+        working-directory: ./
 
-      - name: Deploy PCF to environment
-        uses: microsoft/powerplatform-actions/actions-pcf-push@v1
+      # 5) Build del PCF
+      - name: Build PCF
+        run: npm run build
+        working-directory: ./
+
+      # 6) Login a Dataverse con pac auth create
+      - name: PAC auth create
+        shell: pwsh
+        env:
+          PP_ENVIRONMENT_URL: ${{ secrets.PP_ENVIRONMENT_URL }}
+          PP_TENANT_ID:       ${{ secrets.PP_TENANT_ID }}
+          PP_CLIENT_ID:       ${{ secrets.PP_CLIENT_ID }}
+          PP_CLIENT_SECRET:   ${{ secrets.PP_CLIENT_SECRET }}
+        run: |
+          pac auth clear
+          pac auth create `
+            --environment $env:PP_ENVIRONMENT_URL `
+            --tenant $env:PP_TENANT_ID `
+            --applicationId $env:PP_CLIENT_ID `
+            --clientSecret $env:PP_CLIENT_SECRET
+
+      # 7) Push del componente PCF al entorno
+      - name: PAC pcf push
+        shell: pwsh
+        env:
+          PP_PUBLISHER_PREFIX: ${{ secrets.PP_PUBLISHER_PREFIX }}
+        run: |
+          pac pcf push --publisher-prefix $env:PP_PUBLISHER_PREFIX
