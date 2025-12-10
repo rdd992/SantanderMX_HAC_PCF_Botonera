@@ -89,10 +89,11 @@ jobs:
           & $pac auth clear
           
           & $pac auth create `
-            --environment $env:PP_ENV_URL `
+            --environment $env:PP_ENVIRONMENT_URL `
             --tenant $env:PP_TENANT_ID `
             --applicationId $env:PP_CLIENT_ID `
             --clientSecret $env:PP_CLIENT_SECRET
           
           & $pac pcf push --publisher-prefix $env:PP_PUBLISHER_PREFIX
+
 
