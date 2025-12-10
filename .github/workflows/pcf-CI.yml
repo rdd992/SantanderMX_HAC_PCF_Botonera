@@ -1,20 +1,11 @@
-name: Build & Deploy PCF
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
 jobs:
   build-and-deploy:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
 
@@ -30,13 +21,14 @@ jobs:
       - name: Auth and Push PCF
         shell: pwsh
         env:
-          PP_ENVIRONMENT_URL: ${{ secrets.PP_ENVIRONMENT_URL }}
-          PP_TENANT_ID:       ${{ secrets.PP_TENANT_ID }}
-          PP_CLIENT_ID:       ${{ secrets.PP_CLIENT_ID }}
-          PP_CLIENT_SECRET:   ${{ secrets.PP_CLIENT_SECRET }}
+          PP_ENVIRONMENT_URL:  ${{ secrets.PP_ENVIRONMENT_URL }}
+          PP_TENANT_ID:        ${{ secrets.PP_TENANT_ID }}
+          PP_CLIENT_ID:        ${{ secrets.PP_CLIENT_ID }}
+          PP_CLIENT_SECRET:    ${{ secrets.PP_CLIENT_SECRET }}
           PP_PUBLISHER_PREFIX: ${{ secrets.PP_PUBLISHER_PREFIX }}
         run: |
-          $pac = "$env:USERPROFILE\AppData\Local\Microsoft\PowerAppsCLI\pac.exe"
+          $pac = $env:POWERPLATFORMTOOLS_PACPATH
+          Write-Host "Using PAC at: $pac"
 
           & $pac auth clear
 
