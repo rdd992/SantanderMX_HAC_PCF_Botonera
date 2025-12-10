@@ -95,5 +95,5 @@ jobs:
             --clientSecret $env:PP_CLIENT_SECRET
 
           & $pac pcf push `
-            --publisher-prefix $env:PP_PUBLISHER_PREFIX `
             --solution-unique-name solucion_test
+
