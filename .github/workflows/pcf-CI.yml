@@ -3,28 +3,23 @@ name: CI/CD - PCF Botonera
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # para poder lanzarlo a mano también
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
+      - run: npm run build
 
-      - name: Build PCF
-        run: npm run build
-
-      - name: Publicar artefacto (carpeta out)
+      - name: Publicar artefacto
         uses: actions/upload-artifact@v4
         with:
           name: pcf-out
@@ -32,44 +27,29 @@ jobs:
 
   deploy:
     runs-on: windows-latest
-    needs: build               # 👈 NO se ejecuta si build falla
-
-    # Solo desplegar en push a main (no en PR, por ejemplo)
-    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
+      - run: npm run build
 
-      - name: Build PCF
-        run: npm run build
-
-      - name: Install Power Platform Tools
+      - name: Install Power Platform CLI
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      - name: Auth + PCF Push
-        shell: pwsh
-        env:
-          PP_TENANT_ID: ${{ secrets.PP_TENANT_ID }}
-          PP_CLIENT_ID: ${{ secrets.PP_CLIENT_ID }}
-          PP_CLIENT_SECRET: ${{ secrets.PP_CLIENT_SECRET }}
-          PP_ENV_URL: ${{ secrets.PP_ENV_URL }}
-        run: |
-          pac auth clear
-          pac auth create `
-            --cloud Public `
-            --tenant $env:PP_TENANT_ID `
-            --applicationId $env:PP_CLIENT_ID `
-            --clientSecret $env:PP_CLIENT_SECRET `
-            --url $env:PP_ENV_URL
+      - name: Authenticate to Power Platform
+        uses: microsoft/powerplatform-actions/actions-cloud-login@v1
+        with:
+          tenant-id: ${{ secrets.PP_TENANT_ID }}
+          client-id: ${{ secrets.PP_CLIENT_ID }}
+          client-secret: ${{ secrets.PP_CLIENT_SECRET }}
+          environment-url: ${{ secrets.PP_ENV_URL }}
 
-          pac pcf push
-
+      - name: Deploy PCF to environment
+        uses: microsoft/powerplatform-actions/actions-pcf-push@v1
