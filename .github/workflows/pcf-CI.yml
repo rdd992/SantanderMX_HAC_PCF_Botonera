@@ -10,51 +10,40 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1) Obtener el código
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Node para hacer el build de tu PCF
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '18'
 
-      # 3) Instalar Power Platform Tools (PAC CLI)
       - name: Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      # 4) Instalar dependencias del PCF
-      # Ajusta 'working-directory' si tu package.json está en otra carpeta
-      - name: npm install
+      - name: Install dependencies
         run: npm ci
-        working-directory: ./
 
-      # 5) Build del PCF
       - name: Build PCF
         run: npm run build
-        working-directory: ./
 
-      # 6) Login a Dataverse con pac auth create
-      - name: PAC auth create
+      - name: Auth and Push PCF
         shell: pwsh
         env:
           PP_ENVIRONMENT_URL: ${{ secrets.PP_ENVIRONMENT_URL }}
           PP_TENANT_ID:       ${{ secrets.PP_TENANT_ID }}
           PP_CLIENT_ID:       ${{ secrets.PP_CLIENT_ID }}
           PP_CLIENT_SECRET:   ${{ secrets.PP_CLIENT_SECRET }}
+          PP_PUBLISHER_PREFIX: ${{ secrets.PP_PUBLISHER_PREFIX }}
         run: |
-          pac auth clear
-          pac auth create `
+          $pac = "$env:USERPROFILE\AppData\Local\Microsoft\PowerAppsCLI\pac.exe"
+
+          & $pac auth clear
+
+          & $pac auth create `
             --environment $env:PP_ENVIRONMENT_URL `
             --tenant $env:PP_TENANT_ID `
             --applicationId $env:PP_CLIENT_ID `
             --clientSecret $env:PP_CLIENT_SECRET
 
-      # 7) Push del componente PCF al entorno
-      - name: PAC pcf push
-        shell: pwsh
-        env:
-          PP_PUBLISHER_PREFIX: ${{ secrets.PP_PUBLISHER_PREFIX }}
-        run: |
-          pac pcf push --publisher-prefix $env:PP_PUBLISHER_PREFIX
+          & $pac pcf push --publisher-prefix $env:PP_PUBLISHER_PREFIX
