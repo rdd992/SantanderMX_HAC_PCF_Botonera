@@ -328,15 +328,31 @@ export class botoneraCasoPCF implements ComponentFramework.StandardControl<IInpu
     return set;
   }
 
+  /* =================== Helpers de acceso seguro =================== */
+  private canAccess(win: Window): boolean {
+    try {
+      // Si esto no lanza, es mismo origen
+      void win.location?.href;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private safeGet<T>(getter: () => T): T | undefined {
+    try { return getter(); } catch { return undefined; }
+  }
+
   /* =================== JS externo (namespace/función) =================== */
   private invokeExternalJsWithCode(accionCodigo: string): void {
     try {
       const wins = this.collectCandidateWindows();
       let called = false;
+
       for (const w of wins) {
-        const host = w as unknown as HostWin;
-        const fn = host?.BotonesCaso?.executeAccionesCaso;
-        const xrm = host?.Xrm;
+        const fn = this.safeGet(() => (w as unknown as HostWin).BotonesCaso?.executeAccionesCaso);
+        const xrm = this.safeGet(() => (w as unknown as HostWin).Xrm);
+
         if (typeof fn === "function") {
           const execCtx = { getFormContext: () => (xrm?.Page ?? undefined) };
           fn(execCtx, accionCodigo);
@@ -345,13 +361,14 @@ export class botoneraCasoPCF implements ComponentFramework.StandardControl<IInpu
           break;
         }
       }
+
       if (!called) {
         void this.context.navigation.openAlertDialog({
           text: "No se encontró 'BotonesCaso.executeAccionesCaso'. Agrega/publica la web resource xmsbs_jsBotonesCaso en el formulario."
         });
       }
     } catch (e) {
-      this.debugError("invokeExternalJsWithCode catch()", e);
+      this.debugError("invokeExternalJsWithCode catch()", e as unknown);
       void this.context.navigation.openErrorDialog({
         message: "Error ejecutando el script externo.",
         details: e instanceof Error ? e.message : String(e)
@@ -362,29 +379,48 @@ export class botoneraCasoPCF implements ComponentFramework.StandardControl<IInpu
   private collectCandidateWindows(): Window[] {
     const out: Window[] = [];
     const seen = new Set<Window>();
-    let cur: Window | null = window;
-    let depth = 0;
 
-    while (cur && depth < 6) {
-      if (!seen.has(cur)) {
-        seen.add(cur);
-        out.push(cur);
+    const pushIf = (w: Window | null | undefined) => {
+      if (!w) return;
+      if (seen.has(w)) return;
+      seen.add(w);
+      if (this.canAccess(w)) out.push(w);
+    };
+
+    // Priorizar los más probables
+    pushIf(window);
+    try { if (window.parent && window.parent !== window) pushIf(window.parent as Window); } catch (e) { void 0; }
+
+    // Explorar frames del mismo origen (sin usar window.top)
+    const scanFrames = (root: Window, maxDepth = 3) => {
+      const queue: { w: Window; d: number }[] = [{ w: root, d: 0 }];
+      while (queue.length) {
+        const { w, d } = queue.shift()!;
+        if (d >= maxDepth) continue;
+
+        if (!this.canAccess(w)) continue;
+        let len = 0;
         try {
-          const frms = cur.frames as unknown as Window & { length: number };
-          const len: number = typeof frms?.length === "number" ? frms.length : 0;
-          for (let i = 0; i < len; i++) {
-            try {
-              const ch = (cur.frames[i] as unknown) as Window;
-              if (ch && !seen.has(ch)) { seen.add(ch); out.push(ch); }
-            } catch (e) { void e; }
-          }
-        } catch (e) { void e; }
-      }
+          len = (w.frames as unknown as Window & { length: number }).length ?? 0;
+        } catch (e) { void 0; }
 
-      try { cur = (cur.parent && cur.parent !== cur) ? (cur.parent as Window) : null; }
-      catch (e) { cur = null; void e; }
-      depth++;
-    }
+        for (let i = 0; i < len; i++) {
+          try {
+            const ch = (w.frames[i] as unknown) as Window;
+            if (!ch) continue;
+            if (this.canAccess(ch) && !seen.has(ch)) {
+              seen.add(ch);
+              out.push(ch);
+              queue.push({ w: ch, d: d + 1 });
+            }
+          } catch (e) { void 0; }
+        }
+      }
+    };
+
+    try { scanFrames(window); } catch (e) { void 0; }
+    try { if (this.canAccess(window.parent as Window)) scanFrames(window.parent as Window); } catch (e) { void 0; }
+
     return out;
   }
 
@@ -399,7 +435,7 @@ export class botoneraCasoPCF implements ComponentFramework.StandardControl<IInpu
       const host = (window as unknown as HostWin);
       const fromXrm = host?.Xrm?.Page?.data?.entity?.getEntityName?.();
       if (typeof fromXrm === "string" && fromXrm.length > 0) return fromXrm;
-    } catch (e) { void e; }
+    } catch (e) { void 0; }
 
     return null;
   }
@@ -417,7 +453,7 @@ export class botoneraCasoPCF implements ComponentFramework.StandardControl<IInpu
       if (typeof idFromXrm === "string" && idFromXrm.length > 0) {
         return idFromXrm.replace(/[{}]/g, "");
       }
-    } catch (e) { void e; }
+    } catch (e) { void 0; }
 
     return null;
   }
@@ -432,7 +468,7 @@ export class botoneraCasoPCF implements ComponentFramework.StandardControl<IInpu
     try {
       if (data !== undefined) console.log("[botoneraCasoPCF]", label, data);
       else console.log("[botoneraCasoPCF]", label);
-    } catch (e) { void e; }
+    } catch (e) { void 0; }
   }
   private debugError(label: string, err: unknown) {
     if (!this.SHOW_DEBUG) return;
@@ -442,6 +478,6 @@ export class botoneraCasoPCF implements ComponentFramework.StandardControl<IInpu
       } else {
         console.error("[botoneraCasoPCF][ERROR]", label, err);
       }
-    } catch (e) { void e; }
+    } catch (e) { void 0; }
   }
 }
