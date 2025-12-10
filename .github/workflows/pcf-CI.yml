@@ -2,10 +2,10 @@ name: CI/CD - PCF Botonera
 
 on:
   push:
-    branches: [ main ]   # CI/CD en cada push a main
+    branches: [ main ]        # CI/CD en cada push a main
   pull_request:
-    branches: [ main ]   # Solo CI en PRs
-  workflow_dispatch:      # Permite ejecutarlo a mano desde Actions
+    branches: [ main ]        # Solo CI en PRs
+  workflow_dispatch:           # Permite ejecutarlo a mano desde Actions
 
 jobs:
 
@@ -48,7 +48,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: npm ci
@@ -72,28 +72,28 @@ jobs:
         run: |
           Write-Host "ENV URL: '$env:PP_ENVIRONMENT_URL'"
           Write-Host "PUBLISHER PREFIX: '$env:PP_PUBLISHER_PREFIX'"
-          
+
           if ([string]::IsNullOrWhiteSpace($env:PP_ENVIRONMENT_URL)) {
-            Write-Error "PP_ENVIRONMENT_URL está vacío. Configura el secret con la URL del entorno Dataverse."
+            Write-Error "PP_ENVIRONMENT_URL está vacío. Configura el secret PP_ENV_URL con la URL del entorno Dataverse."
             exit 1
           }
-          
+
           if ([string]::IsNullOrWhiteSpace($env:PP_PUBLISHER_PREFIX)) {
             Write-Error "PP_PUBLISHER_PREFIX está vacío. Configura el prefijo del publisher (2 a 8 caracteres, ej: xmsbs)."
             exit 1
           }
-          
+
           $pac = $env:POWERPLATFORMTOOLS_PACPATH
           Write-Host "Using PAC at: $pac"
-          
+
           & $pac auth clear
-          
+
           & $pac auth create `
-            --environment $env:PP_ENVIRONMENT_URL `
+            --url $env:PP_ENVIRONMENT_URL `
             --tenant $env:PP_TENANT_ID `
             --applicationId $env:PP_CLIENT_ID `
             --clientSecret $env:PP_CLIENT_SECRET
-          
-          & $pac pcf push --publisher-prefix $env:PP_PUBLISHER_PREFIX
 
-
+          & $pac pcf push `
+            --publisher-prefix $env:PP_PUBLISHER_PREFIX `
+            --solution-unique-name solucion_test
