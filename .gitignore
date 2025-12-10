@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+
+# Build output
+out/
+obj/
+bin/
+dist/
+tmp/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE files
+.vscode/
+*.suo
+*.user
+*.cache
+*.vs/
+
+# Windows artefacts
+Thumbs.db
+desktop.ini
