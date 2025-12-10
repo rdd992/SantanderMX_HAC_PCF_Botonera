@@ -1,22 +1,66 @@
+name: CI/CD - PCF Botonera
+
+on:
+  push:
+    branches: [ main ]   # CI/CD en cada push a main
+  pull_request:
+    branches: [ main ]   # Solo CI en PRs (deploy lo filtramos abajo)
+  workflow_dispatch:      # Permite ejecutarlo a mano desde Actions
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install Power Platform Tools
-        uses: microsoft/powerplatform-actions/actions-install@v1
-
       - name: Install dependencies
         run: npm ci
+        working-directory: ./
 
       - name: Build PCF
         run: npm run build
+        working-directory: ./
+
+      - name: Publicar artefacto (carpeta out)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcf-out
+          path: out
+
+  deploy:
+    runs-on: windows-latest
+    needs: build
+    # Solo desplegar cuando:
+    #  - el evento es un push
+    #  - y es a la rama main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./
+
+      - name: Build PCF
+        run: npm run build
+        working-directory: ./
+
+      - name: Install Power Platform Tools (PAC CLI)
+        uses: microsoft/powerplatform-actions/actions-install@v1
 
       - name: Auth and Push PCF
         shell: pwsh
@@ -29,6 +73,11 @@ jobs:
         run: |
           $pac = $env:POWERPLATFORMTOOLS_PACPATH
           Write-Host "Using PAC at: $pac"
+
+          if (-not (Test-Path $pac)) {
+            Write-Error "pac.exe no se encontró en POWERPLATFORMTOOLS_PACPATH: $pac"
+            exit 1
+          }
 
           & $pac auth clear
 
